@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Tarik Tambang</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="title">TARIK TAMBANG</h1>
+        
+        <div class="score-board">
+            <div class="team team-red">
+                <div>TIM MERAH</div>
+                <div id="redScore">0</div>
+            </div>
+            <div>VS</div>
+            <div class="team team-blue">
+                <div>TIM BIRU</div>
+                <div id="blueScore">0</div>
+            </div>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+
+        <div class="game-field" id="gameField">
+            <div class="center-line"></div>
+            <div class="rope-container">
+                <div class="rope" id="rope"></div>
+            </div>
+            
+            <div class="team-players team-left" id="teamLeft">
+                <div class="player player-red">🔴</div>
+                <div class="player player-red">🔴</div>
+                <div class="player player-red">🔴</div>
+            </div>
+            
+            <div class="team-players team-right" id="teamRight">
+                <div class="player player-blue">🔵</div>
+                <div class="player player-blue">🔵</div>
+                <div class="player player-blue">🔵</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <div class="control-title">TIM MERAH</div>
+                <div class="control-keys">Tekan tombol 'A' berulang-ulang</div>
+            </div>
+            <div class="control-group">
+                <div class="control-title">TIM BIRU</div>
+                <div class="control-keys">Tekan tombol 'L' berulang-ulang</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        <div class="game-over-content">
+            <h2 id="winnerText">Tim Pemenang!</h2>
+            <p>Selamat! Anda berhasil memenangkan pertandingan tarik tambang!</p>
+            <button class="restart-btn" onclick="restartGame()">Rematch</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+    
+</body>
+</html>
