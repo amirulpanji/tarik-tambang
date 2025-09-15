@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Tarik Tambang - Best of 3</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="title">Tarik Tambang</h1>
+        <div class="subtitle">Best of 3 - Quiz Challenge Mode</div>
+        
+        <div class="wins-display">
+            <div class="win-counter">
+                <div style="color: #f44336; font-weight: bold;">TIM MERAH</div>
+                <div class="win-dots" id="redWins">
+                    <div class="win-dot"></div>
+                    <div class="win-dot"></div>
+                    <div class="win-dot"></div>
+                </div>
+            </div>
+            <div class="win-counter">
+                <div style="color: #2196f3; font-weight: bold;">TIM BIRU</div>
+                <div class="win-dots" id="blueWins">
+                    <div class="win-dot"></div>
+                    <div class="win-dot"></div>
+                    <div class="win-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="round-info" id="roundInfo">
+            Ronde 1 - Siap untuk bertarung!
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+
+        <div class="game-field" id="gameField">
+            <div class="center-line"></div>
+            <div class="rope-container">
+                <div class="rope" id="rope"></div>
+            </div>
+            
+            <div class="team-players team-left" id="teamLeft">
+                <div class="player player-red">🔴
+                    <div class="boost-indicator" id="leftBoost">BOOST!</div>
+                </div>
+                <div class="player player-red">🔴</div>
+                <div class="player player-red">🔴</div>
+            </div>
+            
+            <div class="team-players team-right" id="teamRight">
+                <div class="player player-blue">🔵
+                    <div class="boost-indicator" id="rightBoost">BOOST!</div>
+                </div>
+                <div class="player player-blue">🔵</div>
+                <div class="player player-blue">🔵</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <div class="control-title">TIM MERAH</div>
+                <div class="control-keys">Tekan tombol 'A' berulang-ulang</div>
+            </div>
+            <div class="control-group">
+                <div class="control-title">TIM BIRU</div>
+                <div class="control-keys">Tekan tombol 'L' berulang-ulang</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div class="quiz-modal" id="quizModal">
+        <div class="quiz-content">
+            <div class="quiz-timer" id="quizTimer">10</div>
+            <div class="quiz-question" id="quizQuestion">Pertanyaan akan muncul di sini</div>
+            <div class="quiz-options" id="quizOptions">
+                <!-- Options akan diisi oleh JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="game-over" id="gameOver">
+        <div class="game-over-content">
+            <h2 id="winnerText">Tim Pemenang!</h2>
+            <p id="finalMessage">Selamat! Anda berhasil memenangkan pertandingan best of 3!</p>
+            <button class="restart-btn" onclick="restartGame()">Main Lagi</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state variables
+        let ropePosition = 50;
+        let redWins = 0;
+        let blueWins = 0;
+        let currentRound = 1;
+        let gameActive = true;
+        let pullCooldown = false;
+        let leftBoostActive = 0;
+        let rightBoostActive = 0;
+        let quizActive = false;
+
+        // Sound effects using Web Audio API
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(frequency, duration, type = 'sine') {
+            if (!audioContext) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        // Sound effects
+        const sounds = {
+            pull: () => playSound(200, 0.1, 'square'),
+            boost: () => {
+                playSound(440, 0.1);
+                setTimeout(() => playSound(550, 0.1), 50);
+                setTimeout(() => playSound(660, 0.1), 100);
+            },
+            win: () => {
+                [264, 297, 330, 352, 396, 440, 495].forEach((freq, i) => {
+                    setTimeout(() => playSound(freq, 0.2), i * 100);
+                });
+            },
+            quiz: () => playSound(880, 0.3, 'triangle'),
+            correct: () => playSound(660, 0.4),
+            wrong: () => playSound(165, 0.6, 'sawtooth')
+        };
+
+        // Quiz questions database
+        const quizQuestions = [
+            {
+                question: "Berapa hasil dari 15 + 27?",
+                options: ["41", "42", "43", "40"],
+                correct: 1
+            },
+            {
+                question: "Ibu kota Indonesia adalah?",
+                options: ["Jakarta", "Surabaya", "Bandung", "Medan"],
+                correct: 0
+            },
+            {
+                question: "Planet terbesar di tata surya adalah?",
+                options: ["Saturnus", "Neptunus", "Jupiter", "Uranus"],
+                correct: 2
+            },
+            {
+                question: "Siapa penemu lampu pijar?",
+                options: ["Albert Einstein", "Thomas Edison", "Isaac Newton", "Leonardo da Vinci"],
+                correct: 1
+            },
+            {
+                question: "Berapa jumlah provinsi di Indonesia?",
+                options: ["30", "34", "36", "38"],
+                correct: 3
+            },
+            {
+                question: "Warna primer adalah?",
+                options: ["Merah, Biru, Kuning", "Hijau, Ungu, Orange", "Hitam, Putih, Abu", "Pink, Coklat, Emas"],
+                correct: 0
+            },
+            {
+                question: "1 kilometer sama dengan berapa meter?",
+                options: ["100", "1000", "10000", "500"],
+                correct: 1
+            },
+            {
+                question: "Hewan terbesar di dunia adalah?",
+                options: ["Hiu", "Gajah", "Jerapah", "Paus Biru"],
+                correct: 3
+            }
+        ];
+
+        // DOM elements
+        const rope = document.getElementById('rope');
+        const progressBar = document.getElementById('progressBar');
+        const gameField = document.getElementById('gameField');
+        const teamLeft = document.getElementById('teamLeft');
+        const teamRight = document.getElementById('teamRight');
+        const gameOver = document.getElementById('gameOver');
+        const winnerText = document.getElementById('winnerText');
+        const finalMessage = document.getElementById('finalMessage');
+        const roundInfo = document.getElementById('roundInfo');
+        const redWinsEl = document.getElementById('redWins');
+        const blueWinsEl = document.getElementById('blueWins');
+        const leftBoost = document.getElementById('leftBoost');
+        const rightBoost = document.getElementById('rightBoost');
+        const quizModal = document.getElementById('quizModal');
+        const quizQuestion = document.getElementById('quizQuestion');
+        const quizOptions = document.getElementById('quizOptions');
+        const quizTimer = document.getElementById('quizTimer');
+
+        function updateRopePosition() {
+            progressBar.style.width = ropePosition + '%';
+            const ropeContainer = rope.parentElement;
+            ropeContainer.style.transform = `translateY(-50%) translateX(${(ropePosition - 50) * 2}px)`;
+            
+            // Check for potential quiz trigger (when rope reaches 25% or 75%)
+            if ((ropePosition <= 25 || ropePosition >= 75) && !quizActive && gameActive && Math.random() < 0.3) {
+                triggerQuiz(ropePosition <= 25 ? 'red' : 'blue');
+            }
+            
+            // Check win condition
+            if (ropePosition <= 0) {
+                endRound('red');
+            } else if (ropePosition >= 100) {
+                endRound('blue');
+            }
+        }
+
+        function pullRope(direction) {
+            if (!gameActive || pullCooldown || quizActive) return;
+            
+            pullCooldown = true;
+            setTimeout(() => pullCooldown = false, 100);
+            
+            let pullStrength = 2;
+            
+            if (direction === 'left') {
+                if (leftBoostActive > 0) {
+                    pullStrength = 5;
+                    leftBoostActive--;
+                    if (leftBoostActive === 0) {
+                        leftBoost.style.display = 'none';
+                    }
+                }
+                ropePosition = Math.max(0, ropePosition - pullStrength);
+                teamLeft.classList.add('pulling');
+                setTimeout(() => teamLeft.classList.remove('pulling'), 200);
+                sounds.pull();
+            } else if (direction === 'right') {
+                if (rightBoostActive > 0) {
+                    pullStrength = 5;
+                    rightBoostActive--;
+                    if (rightBoostActive === 0) {
+                        rightBoost.style.display = 'none';
+                    }
+                }
+                ropePosition = Math.min(100, ropePosition + pullStrength);
+                teamRight.classList.add('pulling');
+                setTimeout(() => teamRight.classList.remove('pulling'), 200);
+                sounds.pull();
+            }
+            
+            updateRopePosition();
+        }
+
+        function triggerQuiz(team) {
+            if (quizActive) return;
+            
+            quizActive = true;
+            gameActive = false;
+            sounds.quiz();
+            
+            const randomQuestion = quizQuestions[Math.floor(Math.random() * quizQuestions.length)];
+            quizQuestion.textContent = `Quiz untuk ${team === 'red' ? 'Tim Merah' : 'Tim Biru'}: ${randomQuestion.question}`;
+            
+            quizOptions.innerHTML = '';
+            randomQuestion.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.className = 'quiz-option';
+                button.textContent = option;
+                button.onclick = () => answerQuiz(index, randomQuestion.correct, team);
+                quizOptions.appendChild(button);
+            });
+            
+            quizModal.style.display = 'flex';
+            
+            // Quiz timer
+            let timeLeft = 10;
+            quizTimer.textContent = timeLeft;
+            const timer = setInterval(() => {
+                timeLeft--;
+                quizTimer.textContent = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    answerQuiz(-1, randomQuestion.correct, team); // -1 means timeout
+                }
+            }, 1000);
+            
+            // Store timer reference to clear it if answered early
+            quizModal.timerRef = timer;
+        }
+
+        function answerQuiz(selectedIndex, correctIndex, team) {
+            if (quizModal.timerRef) {
+                clearInterval(quizModal.timerRef);
+            }
+            
+            const options = quizOptions.children;
+            
+            // Show correct/wrong answers
+            for (let i = 0; i < options.length; i++) {
+                if (i === correctIndex) {
+                    options[i].classList.add('correct');
+                } else if (i === selectedIndex && i !== correctIndex) {
+                    options[i].classList.add('wrong');
+                }
+                options[i].disabled = true;
+            }
+            
+            setTimeout(() => {
+                quizModal.style.display = 'none';
+                quizActive = false;
+                gameActive = true;
+                
+                // Give boost if answer is correct
+                if (selectedIndex === correctIndex) {
+                    sounds.correct();
+                    giveBoost(team);
+                } else {
+                    sounds.wrong();
+                }
+            }, 2000);
+        }
+
+        function giveBoost(team) {
+            if (team === 'red') {
+                leftBoostActive = 5;
+                leftBoost.style.display = 'block';
+                teamLeft.querySelector('.player').classList.add('boosted');
+                setTimeout(() => teamLeft.querySelector('.player').classList.remove('boosted'), 1000);
+            } else {
+                rightBoostActive = 5;
+                rightBoost.style.display = 'block';
+                teamRight.querySelector('.player').classList.add('boosted');
+                setTimeout(() => teamRight.querySelector('.player').classList.remove('boosted'), 1000);
+            }
+            sounds.boost();
+        }
+
+        function endRound(winner) {
+            gameActive = false;
+            sounds.win();
+            
+            if (winner === 'red') {
+                redWins++;
+                redWinsEl.children[redWins - 1].classList.add('filled');
+            } else {
+                blueWins++;
+                blueWinsEl.children[blueWins - 1].classList.add('filled');
+            }
+            
+            // Check if game is over (best of 3)
+            if (redWins > 2 || blueWins > 2) {
+                setTimeout(() => {
+                    winnerText.textContent = `${winner === 'red' ? 'TIM MERAH' : 'TIM BIRU'} MENANG KESELURUHAN!`;
+                    finalMessage.textContent = `Selamat! ${winner === 'red' ? 'Tim Merah' : 'Tim Biru'} berhasil memenangkan pertandingan Best of 3!`;
+                    gameOver.style.display = 'flex';
+                }, 1000);
+            } else {
+                // Start next round
+                setTimeout(() => {
+                    currentRound++;
+                    roundInfo.textContent = `Ronde ${currentRound} - ${winner === 'red' ? 'Tim Merah' : 'Tim Biru'} menang ronde sebelumnya!`;
+                    resetRound();
+                }, 2000);
+            }
+        }
+
+        function resetRound() {
+            ropePosition = 50;
+            gameActive = true;
+            leftBoostActive = 0;
+            rightBoostActive = 0;
+            leftBoost.style.display = 'none';
+            rightBoost.style.display = 'none';
+            updateRopePosition();
+        }
+
+        function restartGame() {
+            ropePosition = 50;
+            redWins = 0;
+            blueWins = 0;
+            currentRound = 1;
+            gameActive = true;
+            leftBoostActive = 0;
+            rightBoostActive = 0;
+            quizActive = false;
+            
+            // Reset UI
+            gameOver.style.display = 'none';
+            quizModal.style.display = 'none';
+            leftBoost.style.display = 'none';
+            rightBoost.style.display = 'none';
+            roundInfo.textContent = 'Ronde 1 - Siap untuk bertarung!';
+            
+            // Reset win indicators
+            redWinsEl.querySelectorAll('.win-dot').forEach(dot => dot.classList.remove('filled'));
+            blueWinsEl.querySelectorAll('.win-dot').forEach(dot => dot.classList.remove('filled'));
+            
+            updateRopePosition();
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', function(event) {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            const key = event.key.toLowerCase();
+            
+            if (key === 'a') {
+                pullRope('left');
+            } else if (key === 'l') {
+                pullRope('right');
+            }
+        });
+
+        // Initialize game
+        updateRopePosition();
+
+        // Natural drift effect
+        setInterval(() => {
+            if (gameActive && !quizActive && Math.random() < 0.05) {
+                const drift = (Math.random() - 0.5) * 0.5;
+                ropePosition = Math.max(0, Math.min(100, ropePosition + drift));
+                updateRopePosition();
+            }
+        }, 500);
+    </script>
+</body>
+</html>
